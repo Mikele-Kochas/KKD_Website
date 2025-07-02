@@ -46,6 +46,11 @@ class BlogPost(db.Model):
     def __repr__(self):
         return f'<BlogPost {self.title}>'
 
+# Tworzenie tabel w bazie danych
+with app.app_context():
+    db.create_all()
+    logging.info("Tabele bazy danych zostały utworzone/sprawdzone.")
+
 # --- Konfiguracja Google Generative AI ---
 api_key = os.getenv("GOOGLE_API_KEY")
 
