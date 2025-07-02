@@ -16,6 +16,7 @@ from email.mime.multipart import MIMEMultipart
 import re
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from urllib.parse import urljoin
 
 # Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
@@ -133,9 +134,9 @@ def send_approval_email(post, token):
     message["From"] = SMTP_USERNAME
     message["To"] = RECIPIENT_EMAIL
 
-    approve_url = f"{BASE_URL}/api/blog/approve/{token}"
-    reject_url = f"{BASE_URL}/api/blog/reject/{token}"
-    edit_url = f"{FRONTEND_URL}/blog/edit/{token}"
+    approve_url = urljoin(BASE_URL, f"api/blog/approve/{token}")
+    reject_url = urljoin(BASE_URL, f"api/blog/reject/{token}")
+    edit_url = urljoin(FRONTEND_URL, f"blog/edit/{token}")
 
     html = f"""
     <html>
@@ -152,7 +153,7 @@ def send_approval_email(post, token):
         <p>
             <a href="{approve_url}" style="padding: 10px 15px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px;">Zatwierdź i Opublikuj</a>
             <a href="{reject_url}" style="padding: 10px 15px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px;">Odrzuć Post</a>
-            <a href="{edit_url}" style="padding: 10px 15px; background-color: #ffc107; color: black; text-decoration: none; border-radius: 5px;">Prześlij uwagi do redakcji</a>
+            <a href="{edit_url}" style="padding: 10px 15px; background-color: #ffc107; color: black; text-decoration: none; border-radius: 5px;">Edytuj Post</a>
         </p>
       </body>
     </html>
