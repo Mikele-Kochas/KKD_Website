@@ -27,8 +27,14 @@ app = Flask(__name__)
 # --- Konfiguracja Bazy Danych ---
 # Render dostarczy URL bazy danych w zmiennej środowiskowej DATABASE_URL
 db_url = os.getenv("DATABASE_URL")
-if db_url and db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+if db_url:
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    
+    # Dodajemy parametr sslmode=require, aby rozwiązać problemy z połączeniem SSL na Render
+    if "?sslmode" not in db_url:
+        db_url += "?sslmode=require"
+
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
