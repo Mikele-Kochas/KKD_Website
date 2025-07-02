@@ -35,13 +35,12 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Nowy, bardziej niezawodny sposób na wymuszenie połączenia SSL z bazą danych na Render.
-# Zamiast modyfikować URL, przekazujemy opcje bezpośrednio do silnika SQLAlchemy.
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+# OSTATECZNA POPRAWKA: Przekazujemy opcje silnika bezpośrednio do konstruktora SQLAlchemy,
+# aby zagwarantować, że zostaną zastosowane w każdym procesie (głównym i w tle).
+engine_options = {
     "connect_args": {"sslmode": "require"},
 }
-
-db = SQLAlchemy(app)
+db = SQLAlchemy(app, engine_options=engine_options)
 
 # --- Model Bazy Danych ---
 class BlogPost(db.Model):
@@ -384,7 +383,7 @@ def reject_post(token):
     return "Nie znaleziono posta lub został już przetworzony.", 404
 
 @app.route('/api/chat', methods=['POST'])
-def chat_endpoint():
+def chat_with_ai():
     logging.info("Otrzymano zapytanie do /api/chat")
     
     if not genaikey_configured:
@@ -445,38 +444,6 @@ def chat_endpoint():
     except Exception as e:
         logging.error(f"Błąd podczas generowania odpowiedzi AI: {e}")
         return jsonify({"error": "Wystąpił błąd podczas komunikacji z AI"}), 500
-
-@app.route('/api/admin/clear-drafts', methods=['POST'])
-def force_new_draft():
-    """
-    Specjalny, tymczasowy endpoint do usunięcia wszystkich istniejących 
-    wersji roboczych i wygenerowania nowej.
-    """
-    try:
-        # Ten klucz działa jak proste hasło, aby nikt przypadkowy nie mógł tego uruchomić.
-        # W normalnej aplikacji byłoby tu logowanie administratora.
-        secret_key = request.headers.get('X-Admin-Key')
-        if secret_key != 'KociKociDrapkiSecretKey':
-            return jsonify({"error": "Brak autoryzacji"}), 403
-
-        logging.info("ADMIN: Ręczne wymuszenie generowania nowego draftu.")
-        
-        # Usuń istniejące drafty
-        drafts = BlogPost.query.filter_by(status='draft').all()
-        num_deleted = len(drafts)
-        for draft in drafts:
-            db.session.delete(draft)
-        db.session.commit()
-        logging.info(f"ADMIN: Usunięto {num_deleted} starych wersji roboczych.")
-        
-        # Wygeneruj nowy post
-        generate_blog_post()
-        
-        return jsonify({"message": f"Pomyślnie usunięto {num_deleted} starych draftów i wygenerowano nowy."}), 200
-    except Exception as e:
-        logging.error(f"ADMIN: Błąd podczas wymuszania nowego draftu: {e}")
-        db.session.rollback()
-        return jsonify({"error": "Wystąpił błąd serwera."}), 500
 
 # --- Uruchomienie wątku z harmonogramem ---
 # Uruchamiamy wątek w tle, który będzie automatycznie generował posty na bloga.
