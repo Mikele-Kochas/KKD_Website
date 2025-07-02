@@ -16,6 +16,7 @@ from email.mime.multipart import MIMEMultipart
 import re
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 # Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
@@ -28,19 +29,33 @@ CORS(app)
 
 # --- Konfiguracja Bazy Danych ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
-# Render może podawać URL w formacie 'postgres://', a SQLAlchemy oczekuje 'postgresql://'
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+if DATABASE_URL:
+    # Upewnij się, że dialekt to 'postgresql'
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+    # Rozwiązanie ostateczne: Przebuduj URL, aby w sposób odporny na błędy
+    # dodać parametr sslmode=require. Gwarantuje to, że każde połączenie,
+    # niezależnie od kontekstu (wątek tła, proces web), będzie go używać.
+    try:
+        parsed_url = urlparse(DATABASE_URL)
+        query_params = parse_qs(parsed_url.query)
+        query_params['sslmode'] = ['require']
+        
+        # Odbuduj części adresu URL z nowymi parametrami
+        new_query = urlencode(query_params, doseq=True)
+        url_parts = list(parsed_url)
+        url_parts[4] = new_query
+        DATABASE_URL = urlunparse(url_parts)
+    except Exception as e:
+        logging.error(f"Nie udało się zmodyfikować DATABASE_URL w celu dodania SSL: {e}")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# OSTATECZNA POPRAWKA: Przekazujemy opcje silnika bezpośrednio do konstruktora SQLAlchemy,
-# aby zagwarantować, że zostaną zastosowane w każdym procesie (głównym i w tle).
-engine_options = {
-    "connect_args": {"sslmode": "require"},
-}
-db = SQLAlchemy(app, engine_options=engine_options)
+# Inicjalizujemy SQLAlchemy bez dodatkowych opcji, ponieważ wszystko jest już w URL.
+db = SQLAlchemy(app)
 
 # --- Model Bazy Danych ---
 class BlogPost(db.Model):
