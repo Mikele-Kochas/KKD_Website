@@ -16,7 +16,6 @@ from email.mime.multipart import MIMEMultipart
 import re
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode, urljoin
 
 # Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
@@ -30,31 +29,14 @@ CORS(app)
 # --- Konfiguracja Bazy Danych ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-if DATABASE_URL:
-    # Upewnij się, że dialekt to 'postgresql'
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    
-    # Rozwiązanie ostateczne: Przebuduj URL, aby w sposób odporny na błędy
-    # dodać parametr sslmode=require. Gwarantuje to, że każde połączenie,
-    # niezależnie od kontekstu (wątek tła, proces web), będzie go używać.
-    try:
-        parsed_url = urlparse(DATABASE_URL)
-        query_params = parse_qs(parsed_url.query)
-        query_params['sslmode'] = ['require']
-        
-        # Odbuduj części adresu URL z nowymi parametrami
-        new_query = urlencode(query_params, doseq=True)
-        url_parts = list(parsed_url)
-        url_parts[4] = new_query
-        DATABASE_URL = urlunparse(url_parts)
-    except Exception as e:
-        logging.error(f"Nie udało się zmodyfikować DATABASE_URL w celu dodania SSL: {e}")
+# Jedyna potrzebna modyfikacja: upewnij się, że dialekt to 'postgresql'
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicjalizujemy SQLAlchemy bez dodatkowych opcji, ponieważ wszystko jest już w URL.
+# Inicjalizujemy SQLAlchemy w najprostszy możliwy sposób.
 db = SQLAlchemy(app)
 
 # --- Model Bazy Danych ---
@@ -151,9 +133,9 @@ def send_approval_email(post, token):
     message["From"] = SMTP_USERNAME
     message["To"] = RECIPIENT_EMAIL
 
-    approve_url = urljoin(BASE_URL, f"/api/blog/approve/{token}")
-    reject_url = urljoin(BASE_URL, f"/api/blog/reject/{token}")
-    edit_url = urljoin(FRONTEND_URL, f"/blog/edit/{token}")
+    approve_url = f"{BASE_URL}/api/blog/approve/{token}"
+    reject_url = f"{BASE_URL}/api/blog/reject/{token}"
+    edit_url = f"{FRONTEND_URL}/blog/edit/{token}"
 
     html = f"""
     <html>
