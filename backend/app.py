@@ -436,13 +436,15 @@ def chat_endpoint():
         logging.error(f"Błąd podczas generowania odpowiedzi AI: {e}")
         return jsonify({"error": "Wystąpił błąd podczas komunikacji z AI"}), 500
 
+# --- Uruchomienie wątku z harmonogramem ---
+# Uruchamiamy wątek w tle, który będzie automatycznie generował posty na bloga.
+# Ten kod jest teraz poza blokiem __main__, aby gunicorn go uruchomił.
+scheduler_thread = threading.Thread(target=blog_post_scheduler, daemon=True)
+scheduler_thread.start()
+logging.info("Wątek harmonogramu bloga został uruchomiony.")
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()  # Tworzy tabele w bazie danych, jeśli nie istnieją
-        
-    # Uruchomienie wątku z harmonogramem
-    scheduler_thread = threading.Thread(target=blog_post_scheduler, daemon=True)
-    scheduler_thread.start()
-    
-    # Uruchomienie aplikacji Flask
-    app.run(debug=True, use_reloader=False) 
+    # Ten blok jest teraz używany tylko do lokalnego developmentu.
+    # Tworzenie tabel i start wątku dzieje się teraz wyżej w kodzie,
+    # aby działało również na serwerze produkcyjnym.
+    app.run(debug=True) 
