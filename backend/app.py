@@ -442,6 +442,38 @@ def chat_endpoint():
         logging.error(f"Błąd podczas generowania odpowiedzi AI: {e}")
         return jsonify({"error": "Wystąpił błąd podczas komunikacji z AI"}), 500
 
+@app.route('/api/admin/clear-drafts', methods=['POST'])
+def force_new_draft():
+    """
+    Specjalny, tymczasowy endpoint do usunięcia wszystkich istniejących 
+    wersji roboczych i wygenerowania nowej.
+    """
+    try:
+        # Ten klucz działa jak proste hasło, aby nikt przypadkowy nie mógł tego uruchomić.
+        # W normalnej aplikacji byłoby tu logowanie administratora.
+        secret_key = request.headers.get('X-Admin-Key')
+        if secret_key != 'KociKociDrapkiSecretKey':
+            return jsonify({"error": "Brak autoryzacji"}), 403
+
+        logging.info("ADMIN: Ręczne wymuszenie generowania nowego draftu.")
+        
+        # Usuń istniejące drafty
+        drafts = BlogPost.query.filter_by(status='draft').all()
+        num_deleted = len(drafts)
+        for draft in drafts:
+            db.session.delete(draft)
+        db.session.commit()
+        logging.info(f"ADMIN: Usunięto {num_deleted} starych wersji roboczych.")
+        
+        # Wygeneruj nowy post
+        generate_blog_post()
+        
+        return jsonify({"message": f"Pomyślnie usunięto {num_deleted} starych draftów i wygenerowano nowy."}), 200
+    except Exception as e:
+        logging.error(f"ADMIN: Błąd podczas wymuszania nowego draftu: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Wystąpił błąd serwera."}), 500
+
 # --- Uruchomienie wątku z harmonogramem ---
 # Uruchamiamy wątek w tle, który będzie automatycznie generował posty na bloga.
 # Ten kod jest teraz poza blokiem __main__, aby gunicorn go uruchomił.
