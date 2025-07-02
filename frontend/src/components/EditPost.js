@@ -69,16 +69,22 @@ function EditPost() {
         fetchDraft();
     }, [token]);
     
-    // Zmodyfikowana obsługa generowania sugestii
+    // Zmodyfikowana obsługa generowania sugestii z zabezpieczeniem
     const handleGetSuggestion = async (prompt) => {
         setIsSuggesting(true);
         setError(null);
+
+        // ZABEZPIECZENIE: Upewnij się, że edytor jest dostępny
+        if (!quillRef.current) {
+            setError("Edytor nie jest jeszcze gotowy. Spróbuj ponownie za chwilę.");
+            setIsSuggesting(false);
+            return;
+        }
 
         const editor = quillRef.current.getEditor();
         const selection = editor.getSelection();
         const context = selection && selection.length > 0 ? editor.getText(selection.index, selection.length) : content;
         
-        // Używamy promptu przekazanego jako argument, domyślnie z pola tekstowego
         const finalPrompt = prompt || aiPrompt; 
 
         if (!finalPrompt) {
