@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import '../App.css';
+import API_BASE_URL from '../config';
 
 function formatDate(isoString) {
   if (!isoString) return '';
@@ -22,7 +23,7 @@ export default function BlogPost() {
     const fetchPost = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/blog/posts/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/blog/posts/${id}`);
         if (!response.ok) {
           if(response.status === 404) {
              throw new Error('Nie znaleziono takiego posta.');

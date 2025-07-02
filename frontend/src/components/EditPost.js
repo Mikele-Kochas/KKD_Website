@@ -4,6 +4,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Style dla edytora
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued';
 import '../App.css'; // Nasze customowe styles
+import API_BASE_URL from '../config';
 
 // Komponent dla modala porównującego zmiany
 const SuggestionModal = ({ oldContent, newContent, onAccept, onReject }) => {
@@ -51,7 +52,7 @@ function EditPost() {
     useEffect(() => {
         const fetchDraft = async () => {
             try {
-                const response = await fetch(`/api/blog/draft/${token}`);
+                const response = await fetch(`${API_BASE_URL}/api/blog/draft/${token}`);
                 if (!response.ok) {
                     throw new Error('Nie znaleziono wersji roboczej posta lub wystąpił błąd.');
                 }
@@ -87,7 +88,7 @@ function EditPost() {
         }
 
         try {
-            const response = await fetch(`/api/blog/suggest`, {
+            const response = await fetch(`${API_BASE_URL}/api/blog/suggest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: finalPrompt, title, content, context }),
@@ -110,7 +111,7 @@ function EditPost() {
         setError(null);
         setMessage('');
         try {
-            const response = await fetch(`/api/blog/edit/${token}`, {
+            const response = await fetch(`${API_BASE_URL}/api/blog/edit/${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, content }),

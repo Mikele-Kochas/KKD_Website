@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import '../App.css';
+import API_BASE_URL from '../config';
 
 const ChatWindow = forwardRef(({ onClose }, ref) => {
   const [messages, setMessages] = useState([
@@ -30,7 +31,7 @@ const ChatWindow = forwardRef(({ onClose }, ref) => {
       setIsBotTyping(true);
 
       try {
-        const response = await fetch('/api/chat', {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: userMessage })

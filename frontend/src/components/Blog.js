@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import '../App.css';
+import API_BASE_URL from '../config';
 
 function createExcerpt(htmlContent, maxLength = 150) {
   // Usuwa tagi HTML, aby uzyskać czysty tekst
@@ -22,7 +23,7 @@ function Blog() {
       try {
         // Zakładamy, że serwer deweloperski React (port 3000)
         // ma skonfigurowany proxy do serwera Flask (port 5000)
-        const response = await fetch('/api/blog/posts');
+        const response = await fetch(`${API_BASE_URL}/api/blog/posts`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
