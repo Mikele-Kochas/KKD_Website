@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { CSSTransition } from 'react-transition-group';
 import './App.css';
 import Header from './components/Header';
@@ -12,6 +12,18 @@ import Contact from './components/Contact';
 import EditPost from './components/EditPost';
 import ChatbotIcon from './components/ChatbotIcon';
 import ChatWindow from './components/ChatWindow';
+
+// Komponent "łapacz" do obsługi problematycznego routingu na Render
+const CatchAll = () => {
+  const location = useLocation();
+  // Ręcznie sprawdzamy, czy ścieżka pasuje do naszego wzorca
+  if (location.pathname.startsWith('/blog/edit/')) {
+    // Jeśli tak, na siłę renderujemy komponent EditPost
+    return <EditPost />;
+  }
+  // Domyślnie, jeśli nic nie pasuje, można tu wstawić stronę 404 lub przekierowanie
+  return <Home />; // Lub np. <NotFoundPage />
+};
 
 function App() {
   const [isChatVisible, setChatVisible] = useState(false);
@@ -30,6 +42,8 @@ function App() {
               <Route path="/blog/:id" element={<BlogPost />} />
               <Route path="/blog/edit/:token" element={<EditPost />} />
               <Route path="/kontakt" element={<Contact />} />
+              {/* Dodajemy naszą regułę "łapacza" na samym końcu */}
+              <Route path="*" element={<CatchAll />} />
             </Routes>
           </main>
         </div>
