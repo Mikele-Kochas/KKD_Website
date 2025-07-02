@@ -16,7 +16,7 @@ from email.mime.multipart import MIMEMultipart
 import re
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode, urljoin
 
 # Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
@@ -151,9 +151,9 @@ def send_approval_email(post, token):
     message["From"] = SMTP_USERNAME
     message["To"] = RECIPIENT_EMAIL
 
-    approve_url = f"{BASE_URL}/api/blog/approve/{token}"
-    reject_url = f"{BASE_URL}/api/blog/reject/{token}"
-    edit_url = f"{FRONTEND_URL}/blog/edit/{token}" # Nowy link do edycji
+    approve_url = urljoin(BASE_URL, f"/api/blog/approve/{token}")
+    reject_url = urljoin(BASE_URL, f"/api/blog/reject/{token}")
+    edit_url = urljoin(FRONTEND_URL, f"/blog/edit/{token}")
 
     html = f"""
     <html>
