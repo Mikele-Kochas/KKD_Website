@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import re
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 # Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
@@ -23,19 +24,14 @@ logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 # --- Konfiguracja Bazy Danych ---
-# Render dostarczy URL bazy danych w zmiennej środowiskowej DATABASE_URL
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-    
-    # Dodajemy parametr sslmode=require, aby rozwiązać problemy z połączeniem SSL na Render
-    if "?sslmode" not in db_url:
-        db_url += "?sslmode=require"
-
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+DATABASE_URL = os.environ.get('DATABASE_URL')
+# Poprawka dla Render.com - zapewnia, że połączenie z bazą danych używa SSL.
+if DATABASE_URL and DATABASE_URL.startswith("postgres://") and "sslmode" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
