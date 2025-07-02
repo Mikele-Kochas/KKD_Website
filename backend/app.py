@@ -28,17 +28,19 @@ CORS(app)
 
 # --- Konfiguracja Bazy Danych ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    # Upewnij się, że używamy dialektu 'postgresql://'
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    
-    # Dodaj sslmode=require, jeśli go brakuje, dla połączeń z Render
-    if DATABASE_URL.startswith("postgresql://") and "sslmode" not in DATABASE_URL:
-        DATABASE_URL += "?sslmode=require"
+# Render może podawać URL w formacie 'postgres://', a SQLAlchemy oczekuje 'postgresql://'
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Nowy, bardziej niezawodny sposób na wymuszenie połączenia SSL z bazą danych na Render.
+# Zamiast modyfikować URL, przekazujemy opcje bezpośrednio do silnika SQLAlchemy.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "connect_args": {"sslmode": "require"},
+}
+
 db = SQLAlchemy(app)
 
 # --- Model Bazy Danych ---
