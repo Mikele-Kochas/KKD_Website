@@ -330,6 +330,22 @@ def clear_drafts():
         logging.error(f"Błąd podczas usuwania wersji roboczych: {e}")
         return jsonify({'error': 'Failed to clear drafts'}), 500
 
+@bp.route('/admin/generate-now', methods=['POST'])
+def force_generate_post():
+    """
+    Manualny endpoint do wymuszenia generowania posta.
+    """
+    from flask import current_app
+    
+    logging.info("Ręczne uruchomienie generatora postów...")
+    
+    # Uruchamiamy logikę w nowym wątku, aby nie blokować odpowiedzi HTTP
+    # To jest ważne, bo generowanie + wysyłka maila może chwilę potrwać
+    thread = threading.Thread(target=generate_blog_post_logic, args=(current_app._get_current_object(),))
+    thread.start()
+    
+    return jsonify({'message': 'Proces generowania posta został uruchomiony w tle.'}), 202
+
 def blog_post_generator_thread_starter(app):
     """
     Funkcja, która będzie uruchamiana w osobnym wątku.
