@@ -94,9 +94,9 @@ def send_approval_email(post, token):
     message["From"] = SMTP_USERNAME
     message["To"] = RECIPIENT_EMAIL
 
-    # W refaktoryzacji, url_prefix='/api' jest w Blueprint, więc nie trzeba go tu dodawać
-    approve_url = urljoin(BASE_URL, f"blog/approve/{token}")
-    reject_url = urljoin(BASE_URL, f"blog/reject/{token}")
+    # Poprawka: Dodajemy ręcznie /api/ do ścieżki, ponieważ urljoin nie wie o Blueprintach
+    approve_url = urljoin(BASE_URL, f"api/blog/approve/{token}")
+    reject_url = urljoin(BASE_URL, f"api/blog/reject/{token}")
     edit_url = urljoin(FRONTEND_URL, f"blog/edit/{token}")
 
     html = f"""
