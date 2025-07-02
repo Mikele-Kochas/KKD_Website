@@ -31,6 +31,8 @@ const SuggestionModal = ({ oldContent, newContent, onAccept, onReject }) => {
 };
 
 function EditPost() {
+    console.log("1. Komponent EditPost rozpoczyna renderowanie.");
+
     const { token } = useParams();
     // Stan posta
     const [title, setTitle] = useState('');
@@ -49,20 +51,34 @@ function EditPost() {
     const [suggestion, setSuggestion] = useState(null);
     const quillRef = useRef(null);
 
+    console.log("2. Token z URL:", token);
+
     useEffect(() => {
+        console.log("3. Uruchomiono useEffect do pobrania danych.");
         const fetchDraft = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/blog/draft/${token}`);
+                const fetchUrl = `${API_BASE_URL}/api/blog/draft/${token}`;
+                console.log("4. Próbuję pobrać dane z:", fetchUrl);
+
+                const response = await fetch(fetchUrl);
+                console.log("5. Otrzymano odpowiedź od serwera, status:", response.status);
+
                 if (!response.ok) {
-                    throw new Error('Nie znaleziono wersji roboczej posta lub wystąpił błąd.');
+                    console.error("6a. Odpowiedź NIE jest OK. Rzucam błąd.");
+                    throw new Error(`Nie znaleziono wersji roboczej. Status: ${response.status}`);
                 }
+                
                 const data = await response.json();
+                console.log("6b. Odpowiedź jest OK. Otrzymano dane:", data);
+
                 setTitle(data.title);
                 setContent(data.content);
-                originalPost.current = data; // Zapisz oryginał
+                originalPost.current = data;
             } catch (e) {
+                console.error("7. Wystąpił błąd w bloku try-catch:", e);
                 setError(e.message);
             } finally {
+                console.log("8. Wykonuję blok 'finally'. Zmieniam isLoading na false.");
                 setIsLoading(false);
             }
         };
@@ -144,9 +160,17 @@ function EditPost() {
         setSuggestion(null); // Zamknij modal
     };
 
-    if (isLoading) return <div className="content-section"><h2>Ładowanie edytora...</h2></div>;
-    if (error && !message) return <div className="content-section"><h2>Błąd</h2><p className="error-message">{error}</p><Link to="/">Wróć na stronę główną</Link></div>;
+    if (isLoading) {
+        console.log("9a. Renderuję w stanie ŁADOWANIA.");
+        return <div className="content-section"><h2>Ładowanie edytora...</h2></div>;
+    }
+    
+    if (error && !message) {
+        console.log("9b. Renderuję w stanie BŁĘDU.");
+        return <div className="content-section"><h2>Błąd</h2><p className="error-message">{error}</p><Link to="/">Wróć na stronę główną</Link></div>;
+    }
 
+    console.log("9c. Renderuję GŁÓWNY WIDOK edytora.");
     return (
         <section className="content-section edit-post-container">
             {message ? (
