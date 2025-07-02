@@ -173,6 +173,30 @@ def send_approval_email(post, token):
     except Exception as e:
         logging.error(f"Nie udało się wysłać e-maila: {e}")
 
+def extract_json_from_string(text):
+    """
+    Wyszukuje i ekstrahuje string JSON z większego tekstu, np. z odpowiedzi od LLM,
+    która może zawierać dodatkowy tekst przed lub po bloku JSON.
+    """
+    try:
+        # Wyszukaj bloki kodu JSON oznaczone przez ```json
+        match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+            return json.loads(json_str)
+
+        # Jeśli nie ma bloku kodu, poszukaj pierwszego '{' i ostatniego '}'
+        start_index = text.find('{')
+        end_index = text.rfind('}')
+        
+        if start_index != -1 and end_index != -1 and start_index < end_index:
+            json_str = text[start_index:end_index+1]
+            return json.loads(json_str)
+            
+        return None
+    except json.JSONDecodeError:
+        return None
+
 def generate_blog_post():
     """Generuje nowy post i zapisuje go jako 'draft' w bazie danych."""
     try:
@@ -199,29 +223,19 @@ def generate_blog_post():
 
         response = model.generate_content(prompt)
         
-        response_text = response.text
-        start_index = response_text.find('{')
-        end_index = response_text.rfind('}') + 1
+        # Bardziej odporne parsowanie JSON z odpowiedzi modelu
+        blog_data = extract_json_from_string(response.text)
+        if not blog_data:
+            # Jeśli blog_data to None, zgłoś błąd, aby go zalogować
+            raise ValueError("Nie znaleziono poprawnego obiektu JSON w odpowiedzi modelu.")
 
-        if start_index != -1 and end_index != 0:
-            json_string = response_text[start_index:end_index]
-            try:
-                post_data = json.loads(json_string)
-            except json.JSONDecodeError as e:
-                logging.error(f"Błąd parsowania JSON: {e}\nString: {json_string}")
-                return
-        else:
-            logging.error(f"Nie znaleziono obiektu JSON w odpowiedzi AI.\nOdpowiedź: {response_text}")
-            return
+        title = blog_data['title']
+        content = blog_data['content']
         
-        if 'title' not in post_data or 'content' not in post_data:
-            logging.error("Odpowiedź AI nie zawiera wymaganych kluczy 'title' lub 'content'.")
-            return
-
         token = secrets.token_urlsafe(24)
         new_post = BlogPost(
-            title=post_data['title'],
-            content=post_data['content'],
+            title=title,
+            content=content,
             status='draft',
             token=token
         )
@@ -229,10 +243,11 @@ def generate_blog_post():
         db.session.commit()
         
         logging.info(f"Pomyślnie zapisano wersję roboczą w DB: '{new_post.title}'")
-        send_approval_email(post_data, token)
+        send_approval_email(blog_data, token)
 
-    except Exception as e:
-        logging.error(f"Błąd podczas generowania i zapisu posta do DB: {e}")
+    except (ValueError, KeyError, json.JSONDecodeError) as e:
+        logging.error(f"Błąd parsowania odpowiedzi z AI: {e}")
+        logging.error(f"Oryginalna odpowiedź: {response.text}")
         db.session.rollback()
 
 def blog_post_scheduler():
