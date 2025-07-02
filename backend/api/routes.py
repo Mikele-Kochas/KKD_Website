@@ -287,11 +287,32 @@ def edit_post(token):
 
 @bp.route('/blog/approve/<token>', methods=['GET'])
 def approve_post(token):
-    post = BlogPost.query.filter_by(token=token, status='draft').first_or_404()
-    post.status = 'published'
-    post.published_at = datetime.now(timezone.utc)
-    db.session.commit()
-    return "Post został opublikowany! Możesz zamknąć tę kartę."
+    try:
+        post = BlogPost.query.filter_by(token=token, status='draft').first_or_404()
+        
+        logging.info(f"Znaleziono post '{post.title}' do zatwierdzenia. Zmieniam status na 'published'.")
+        post.status = 'published'
+        post.published_at = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        logging.info("Zatwierdzono zmiany w sesji (commit).")
+
+        # --- KROK DIAGNOSTYCZNY ---
+        # Sprawdzamy, jaki jest status posta w bazie NATYCHMIAST po commicie
+        db.session.expire(post) # Wymuszamy odświeżenie obiektu z bazy
+        verify_post = BlogPost.query.get(post.id)
+        
+        if verify_post.status == 'published':
+            logging.info("SUKCES: Weryfikacja potwierdziła, że status w DB to 'published'.")
+            return "Post został pomyślnie opublikowany! Weryfikacja w bazie danych powiodła się."
+        else:
+            logging.error(f"KRYTYCZNY BŁĄD: Commit wykonany, ale status w DB to wciąż '{verify_post.status}'!")
+            return f"BŁĄD KRYTYCZNY: Serwer myślał, że opublikował post, ale w bazie danych wciąż jest on w stanie '{verify_post.status}'. Skontaktuj się z administratorem."
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"WYSTĄPIŁ WYJĄTEK podczas próby zatwierdzenia posta: {e}", exc_info=True)
+        return "Wystąpił wewnętrzny błąd serwera podczas publikacji. Sprawdź logi."
 
 @bp.route('/blog/reject/<token>', methods=['GET'])
 def reject_post(token):
