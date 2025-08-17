@@ -9,9 +9,9 @@ function Footer() {
       <div className="footer-content">
         <div className="footer-section footer-contact">
           <h4>Kontakt</h4>
-          <p>Telefon: +48 320 84 02 | +48 605 052 130</p>
-          <p>Email: <a href="mailto:jadzia@kocikocidrapki.pl">jadzia@kocikocidrapki.pl</a></p>
-          <p>ul. Jana III Sobieskiego<br />Zabrze, 41-800</p> 
+          <p>Telefon: +48 666-668-687</p>
+          <p>Email: <a href="mailto:sklep@kocikocidrapki.pl">sklep@kocikocidrapki.pl</a></p>
+          <p>ul. Klonowa 15<br />Zabrze, 41-800</p> 
         </div>
         <div className="footer-section footer-social">
           <h4>Znajdź nas</h4>

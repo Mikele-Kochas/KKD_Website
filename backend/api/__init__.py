@@ -15,14 +15,12 @@ def create_app(test_config=None):
     """
     Fabryka aplikacji. Tworzy i konfiguruje instancję aplikacji Flask.
     """
-    app = Flask(__name__, instance_relative_config=True)
-    
-    # Konfiguracja logowania
+    # Globalna konfiguracja środowiska i logowania
     logging.basicConfig(level=logging.INFO)
-    
-    # Załaduj zmienne środowiskowe z pliku .env
     load_dotenv()
-    
+
+    app = Flask(__name__, instance_relative_config=True)
+
     # --- Konfiguracja Aplikacji ---
     # Ustawiamy domyślną, a następnie nadpisujemy ją specyficzną dla instancji konfiguracją
     app.config.from_mapping(
@@ -30,10 +28,32 @@ def create_app(test_config=None):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
 
+    # Konfiguracja bazy danych
     DATABASE_URL = os.environ.get('DATABASE_URL')
     if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    
+
+    # Fallback na plik SQLite w katalogu tymczasowym systemu, jeśli nie podano DATABASE_URL
+    if not DATABASE_URL:
+        import tempfile
+        default_db_path = os.path.join(tempfile.gettempdir(), 'kocikocidrapki_test.db')
+        default_db_path = os.path.abspath(default_db_path)
+        # Upewnij się, że katalog istnieje
+        try:
+            os.makedirs(os.path.dirname(default_db_path), exist_ok=True)
+        except Exception as e:
+            logging.error(f"Nie można utworzyć katalogu dla pliku DB: {e}")
+        # Na Windows i ogólnie: użyj forward-slash w URI
+        uri_path = default_db_path.replace('\\', '/')
+        default_db_uri = f"sqlite:///{uri_path}"
+        # Spróbuj utworzyć pusty plik DB (jeśli brak uprawnień to zalogujemy błąd)
+        try:
+            open(default_db_path, 'a').close()
+        except Exception as e:
+            logging.error(f"Nie można utworzyć pliku bazy danych: {e}")
+        DATABASE_URL = default_db_uri
+        logging.info(f"Brak DATABASE_URL w środowisku — używam fallbacku: {DATABASE_URL}")
+
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
     if test_config is None:
@@ -42,10 +62,17 @@ def create_app(test_config=None):
     else:
         # załaduj konfigurację testową, jeśli została przekazana
         app.config.from_mapping(test_config)
-        
+
     # --- Inicjalizacja Rozszerzeń ---
     db.init_app(app)
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}}) # Lepsza konfiguracja CORS
+    cors.init_app(app, resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:3000",  # development
+                "https://kocikocidrapki.onrender.com"  # production
+            ]
+        }
+    })
 
     # --- Rejestracja Blueprintów (tras) ---
     from . import routes
@@ -56,8 +83,34 @@ def create_app(test_config=None):
     from . import models
 
     with app.app_context():
-        db.create_all()
-        logging.info("Tabele bazy danych zostały utworzone/sprawdzone w kontekście aplikacji.")
+        # Diagnostic logging: sprawdźmy URI DB i prawa do pliku (jeśli sqlite)
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
+        logging.info(f"Używane SQLALCHEMY_DATABASE_URI: {db_uri}")
+        try:
+            if db_uri and db_uri.startswith('sqlite:///'):
+                db_path = db_uri.replace('sqlite:///', '')
+                db_path = os.path.abspath(db_path)
+                logging.info(f"Resolved sqlite path: {db_path}")
+                try:
+                    logging.info(f"Exists: {os.path.exists(db_path)}")
+                    logging.info(f"Is file writable: {os.access(db_path, os.W_OK)}")
+                    stat = os.stat(db_path) if os.path.exists(db_path) else None
+                    logging.info(f"Stat: {stat}")
+                except Exception as e:
+                    logging.error(f"Błąd przy sprawdzaniu pliku DB: {e}")
+
+            db.create_all()
+            logging.info("Tabele bazy danych zostały utworzone/sprawdzone w kontekście aplikacji.")
+        except Exception as e:
+            logging.error(f"Błąd podczas db.create_all(): {e}", exc_info=True)
+            # Dodatkowo wypisz szczegóły katalogu roboczego i uprawnień
+            try:
+                cwd = os.path.abspath(os.getcwd())
+                logging.error(f"CWD: {cwd}")
+                logging.error(f"Temp dir: {tempfile.gettempdir()}")
+            except Exception:
+                pass
+            raise
 
         # --- Uruchomienie wątku w tle ---
         # Sprawdzamy, czy wątek nie został już uruchomiony (przydatne przy ponownym ładowaniu serwera deweloperskiego)
@@ -67,4 +120,4 @@ def create_app(test_config=None):
             app.config['GENERATOR_THREAD_STARTED'] = True
             logging.info("Wątek generatora postów został uruchomiony.")
 
-    return app 
+    return app

@@ -74,7 +74,7 @@ Treść:
 <p>Czy zastanawiasz się czasem dlaczego na opakowania karm i przysmaków dla kotów coraz częściej można spotkać znaczek "grain free", czyli bez dodatku zbóż ? Czy to naprawdę istotna informacja i rzeczywiście świadczy o wyższej jakości kupowanych produktów? Czy taka karma jest dla mojego kota zdrowsza czy może to tylko sztuczka marketingowa? A może wystarczające oznakowanie dobrej karmy to "gluten free", czyli bezglutenowy?</p><p>Zacznijmy od określenia kim tak naprawdę są nasze koty? To udomowione od kilku tysięcy lat, ale jednak drapieżniki! I wyłączni mięsożercy. W naturze żywią się niewielkimi zwierzętami, na które polują z wielką precyzją i gracją, ponieważ są do tego doskonale przystosowane. Szczególnie dobrze rozwinięty wzrok, słuch i węch, ostre zęby i pazury, smukła sylwetka, silne mięśnie, bardzo elastyczny układ kostny czynią z nich doskonałych myśliwych. Twój słodki puchaty kotek ma kilkadziesiąt kości szkieletowych więcej, niż Ty! :-) Nasze koty odżywiają się więc przede wszystkim białkiem i tłuszczem zwierzęcym, a węglowodany stanowią ok. 2% ich diety.</p><p>Pierwszy znak stop dla węglowodanów w diecie kota to już ich pyszczek. Zęby kota to zęby typowego drapieżnika i mięsożercy, ostre, bez dużych płaskich powierzchni do żucia pokarmów roślinnych, ale doskonałe do odrywania kawałków mięsa. Ich szczęki również poruszają się tylko w linii pionowej, ruchy boczne pomagające w przeżuwaniu roślin nie są im wcale potrzebne. Dodajmy do tego jeszcze fakt, że ślina kota nie zawiera amylazy ślinowej, czyli enzymu odpowiedzialnego za rozpoczęcie trawienia węglowodanów w organiźmie już w jamie ustnej.</p><p>Kolejne argumenty potwierdzające, że węglowodany nie są odpowiednim pożywieniem dla naszych kotów, znajdziemy w dalszych częściach ich układu pokarmowego. Koty mają stosunkowo krótki żołądek z wysokim stężeniem kwasu solnego, wspomagającym trawienie kości, a krotkie jelito cienkie również zdecydowanie utrudnia trawienie węglowodanów.</p><p>W takim razie "grain free", "gluten free", a może jeszcze inna opcja? Odpowiedzią i kluczem do wyboru zdrowej karmy dla kota są własnie węglowodany, czyli zarówno zboża, jak i np.rośliny strączkowe. Pamiętajmy, że w naturze dieta kota, drapieżnika i wyłącznego mięsożercy, to tylko ok. 2% węglowodanów, czyli tyle ile znajduje się w ciele ofiary, głównie jej żołądku, mięśniach i wątrobie.</p><p>Nadmierne spożycie węglowodanów przez koty niesie ze sobą bardzo duże ryzyko wielu poważnych chorób. Obciąża wątrobę i trzustkę, może prowadzić do cukrzycy, zaburzeń układu pokarmowego, nietolerancji pokarmowych, a także otyłości.</p><p>Najlepszą metodą wyboru zdrowej karmy dla naszych kotów jest dokładne zapoznanie się z jej składem. Przejrzysta lista składników, wysoka zawartość mięsa, brak niepotrzebnych wypełniaczy. A dla zdrowia fizycznego i dobrego samopoczucia pozwalajmy naszym kotom chociaż czasem zapolować na kawałek świeżego, odpowiednio przebadanego czystego mięsa! :-)</p>
 """
 
-def get_gemini_model(model_name='gemini-1.5-flash'):
+def get_gemini_model(model_name='gemini-2.5-flash'):
     if not genaikey_configured:
         return None
     try:
@@ -85,14 +85,11 @@ def get_gemini_model(model_name='gemini-1.5-flash'):
         return None
 
 def send_approval_email(post, token):
-    if not all([SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, RECIPIENT_EMAIL]):
-        logging.error("Brak pełnej konfiguracji SMTP. Nie można wysłać e-maila.")
-        return
-
+    # Zbuduj treść maila (zawsze), zaloguj ją do konsoli; spróbuj wysłać tylko jeśli SMTP jest poprawnie skonfigurowane
     message = MIMEMultipart("alternative")
     message["Subject"] = f"Nowy post na bloga do akceptacji: {post['title']}"
-    message["From"] = SMTP_USERNAME
-    message["To"] = RECIPIENT_EMAIL
+    message["From"] = SMTP_USERNAME or 'no-reply'
+    message["To"] = RECIPIENT_EMAIL or 'no-recipient'
 
     # Poprawka: Dodajemy ręcznie /api/ do ścieżki, ponieważ urljoin nie wie o Blueprintach
     approve_url = urljoin(BASE_URL, f"api/blog/approve/{token}")
@@ -121,6 +118,16 @@ def send_approval_email(post, token):
     """
 
     message.attach(MIMEText(html, "html"))
+
+    # Zawsze logujemy treść maila do konsoli, żeby można było ją odczytać bez SMTP
+    logging.info("---- Approval email preview START ----")
+    logging.info(html)
+    logging.info("---- Approval email preview END ----")
+
+    # Jeśli brakuje konfiguracji SMTP — nie próbujemy wysyłać, tylko logujemy informację
+    if not all([SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, RECIPIENT_EMAIL]):
+        logging.warning("Brak pełnej konfiguracji SMTP. E-mail nie został wysłany, ale jego treść została wypisana w logu.")
+        return
 
     try:
         context = ssl.create_default_context()
@@ -275,14 +282,18 @@ def edit_post(token):
     if not data or not data.get('title') or not data.get('content'):
         return jsonify({'error': 'Missing title or content'}), 400
 
+    # Znajdź wersję roboczą powiązaną z tokenem
     post = BlogPost.query.filter_by(token=token, status='draft').first_or_404()
-    
+
+    # Zaktualizuj treść i opublikuj
     post.title = data['title']
     post.content = data['content']
+    post.status = 'published'
+    post.published_at = datetime.now(timezone.utc)
     db.session.commit()
-    
-    logging.info(f"Zaktualizowano wersję roboczą posta: {post.title}")
-    return jsonify({'message': 'Draft updated successfully'})
+
+    logging.info(f"Post '{post.title}' został opublikowany przez edytor.")
+    return jsonify({'message': 'Post został pomyślnie opublikowany!'})
 
 
 @bp.route('/blog/approve/<token>', methods=['GET'])
@@ -371,10 +382,21 @@ def blog_post_generator_thread_starter(app):
     """
     Funkcja, która będzie uruchamiana w osobnym wątku.
     """
+    # Najpierw spróbuj wygenerować post natychmiast po starcie wątku
+    try:
+        logging.info("Natychmiastowe generowanie posta przy starcie wątku generatora...")
+        generate_blog_post_logic(app)
+    except Exception as e:
+        logging.error(f"Błąd podczas natychmiastowego generowania posta: {e}")
+
+    # Następnie pętla cykliczna co 5 minut (300s)
     while True:
-        sleep_time = random.uniform(43200, 86400) # Między 12 a 24 godziny
-        logging.info(f"Następny post zostanie wygenerowany za {sleep_time/3600:.2f} godzin.")
+        sleep_time = random.uniform(43200, 86400)  # między 12 a 24h
+        logging.info(f"Następny post zostanie wygenerowany za {sleep_time/60:.1f} minut.")
         time.sleep(sleep_time)
 
         logging.info("Rozpoczynanie generowania nowego posta na bloga...")
-        generate_blog_post_logic(app) 
+        try:
+            generate_blog_post_logic(app)
+        except Exception as e:
+            logging.error(f"Błąd podczas generowania posta w pętli: {e}")
