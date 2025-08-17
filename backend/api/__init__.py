@@ -79,7 +79,7 @@ def create_app(test_config=None):
         r"/api/*": {
             "origins": [
                 "http://localhost:3000",  # development
-                "https://kocikocidrapki.onrender.com"  # production
+                "https://kkd-website-react.onrender.com"  # production frontend
             ]
         }
     })
