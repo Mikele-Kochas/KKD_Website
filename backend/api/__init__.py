@@ -30,8 +30,18 @@ def create_app(test_config=None):
 
     # Konfiguracja bazy danych
     DATABASE_URL = os.environ.get('DATABASE_URL')
-    if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    if DATABASE_URL:
+        # Fix dla Render PostgreSQL URL
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        # Dodaj parametry SSL jeśli to PostgreSQL
+        if DATABASE_URL.startswith("postgresql://"):
+            if "?" not in DATABASE_URL:
+                DATABASE_URL += "?"
+            else:
+                DATABASE_URL += "&"
+            DATABASE_URL += "sslmode=require"
+            logging.info("Using PostgreSQL database with SSL")
 
     # Fallback na plik SQLite w katalogu tymczasowym systemu, jeśli nie podano DATABASE_URL
     if not DATABASE_URL:
